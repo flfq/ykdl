@@ -1,6 +1,73 @@
 Change Log for ykdl
 ===================
 
+1.6.3
+-------
+
+- update Sohu, mgtv, sina, etc a lot by @SeaHOH
+
+
+1.6.2
+-------
+
+- update QQ, bilibili, panda a lot by @SeaHOH
+- misc updates
+
+1.6.1
+-------
+
+- fix youku/tudou, QQ, mgtv, 163, bilibili by @SeaHOH
+
+1.6.0
+-------
+
+- new internal proxy for slow video playback. by @SeaHOH
+- update youku, many bug fixed.
+- update bilibili, new api, playlist bug fixed.
+- update HTTP redirection for t.cn
+- use cryptodome as default.
+
+1.5.5
+-------
+
+- update bilibili bangumi a lot, better
+- update youku, support check audio_lang
+- update huya, new api
+- update acfun, 163 Dj and QQ
+- update mpv's default parameters.
+
+1.5.4
+-------
+
+- support bilibili bangumi by new extractor
+- support new sites: Zhangyu, Chushou
+- update QQ, important!! by @SeaHOH
+- update Youku, Tudou, not finished.
+- update Huomao, douyu, iqiyi
+- update sohu and mpv wrapper, thanks to @SeaHOH
+
+
+1.5.3
+-------
+
+- update bilibili, tudou, weibo, etc.
+- update mpv wrapper, thanks to @SeaHOH
+
+1.5.2
+-------
+
+- update youku, panda, le, zhanqi, longzhu, laifeng, huajiao, etc.
+- many updates for windows platform, thanks to @SeaHOH
+- README.rst updated.
+
+1.5.1
+-------
+
+- update bilibili, youku, quanmin live, 163, douyu, etc.
+- support egame.qq.com, finance.le.com
+- update player wrapper
+- -F/--format now accept int value as level of resolution.
+
 1.5.0
 -------
 

@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
 import os
 import sys
 from logging import getLogger
 from ykdl.compact import Request, urlopen
 from ykdl.util import log
+from ykdl.util.wrap import encode_for_wrap
 from .html import fake_headers
 
 logger = getLogger("downloader")
@@ -70,12 +72,16 @@ def save_url(url, name, ext, status, part = None, reporthook = simple_hook):
             tfp.write(block)
             blocknum += 1
             reporthook(blocknum, bs, size)
-    if part is None:
-        status[0] = 1
-    else:
-        status[part] =1
+    if os.path.exists(name):
+        filesize = os.path.getsize(name)
+        if filesize == size:
+            if part is None:
+                status[0] = 1
+            else:
+                status[part] =1
 
 def save_urls(urls, name, ext, jobs=1):
+    ext = encode_for_wrap(ext)
     status = [0] * len(urls)
     if len(urls) == 1:
         save_url(urls[0], name, ext, status)
@@ -93,6 +99,6 @@ def save_urls(urls, name, ext, jobs=1):
     i = 0
     for a in status:
         if a == 0:
-            logger.error("donwload failed at part {}".format(i))
+            logger.error("downloader failed at part {}".format(i))
         i += 1
     return not 0 in status

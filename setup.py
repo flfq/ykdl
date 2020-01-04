@@ -23,12 +23,14 @@ def find_packages(*tops):
 
 from ykdl.version import __version__
 
-REQ = ['m3u8']
+REQ = ['m3u8', 'pycryptodome', 'urllib3']
+EXT = {
+  'socks': ['PySocks>=1.7.1'],
+  'js-engine': ['PyChakra>=2.2.0']
+}
+if os.name == 'nt':
+    EXT['ansi-escape'] = ['colorama']
 
-if platform.system() == 'Windows':
-    REQ.append('pycryptodome')
-else:
-    REQ.append('pycrypto')
 
 setup(
     name = "ykdl",
@@ -43,8 +45,13 @@ setup(
     packages = find_packages('ykdl', 'cykdl'),
     requires = REQ,
     install_requires = REQ,
+    extras_require = EXT,
     platforms = 'any',
     zip_safe = True,
+    package_data = {
+        'ykdl': ['extractors/*.js', 'extractors/*/*.js'],
+    },
+
     classifiers = [
         "Development Status :: 4 - Beta",
         "Environment :: Console",
@@ -57,18 +64,17 @@ setup(
         "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Topic :: Internet",
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Multimedia",
-        "Topic :: Multimedia :: Graphics",
         "Topic :: Multimedia :: Sound/Audio",
         "Topic :: Multimedia :: Video",
         "Topic :: Utilities"
     ],
-      entry_points={
-          "console_scripts": ["ykdl=cykdl.__main__:main"]
-      },
+    entry_points={
+        "console_scripts": ["ykdl=cykdl.__main__:main"]
+    },
 )

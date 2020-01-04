@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+from __future__ import print_function
 import sys
 import os
 try:
@@ -12,6 +14,7 @@ except(ImportError):
 
 from argparse import ArgumentParser
 import socket
+import ssl
 import json
 import types
 from multiprocessing import cpu_count
@@ -20,8 +23,8 @@ import logging
 logger = logging.getLogger("YKDL")
 
 from ykdl.common import url_to_module
-from ykdl.compact import ProxyHandler, build_opener, install_opener, compact_str
-from ykdl.util import log
+from ykdl.compact import ProxyHandler, compact_str, urlparse, getproxies
+from ykdl.util.html import add_default_handler, install_default_handlers
 from ykdl.util.wrap import launch_player, launch_ffmpeg, launch_ffmpeg_download
 from ykdl.util.m3u8_wrap import load_m3u8
 from ykdl.util.download import save_urls
@@ -35,10 +38,11 @@ def arg_parser():
     parser.add_argument('-l', '--playlist', action='store_true', default=False, help="Download as a playlist.")
     parser.add_argument('-i', '--info', action='store_true', default=False, help="Display the information of videos without downloading.")
     parser.add_argument('-J', '--json', action='store_true', default=False, help="Display info in json format.")
-    parser.add_argument('-F', '--format',  help="Video format code.")
+    parser.add_argument('-F', '--format',  help="Video format code, or resolution level 0, 1, ...")
     parser.add_argument('-o', '--output-dir', default='.', help="Set the output directory for downloaded videos.")
     parser.add_argument('-O', '--output-name', default='', help="downloaded videos with the NAME you want")
     parser.add_argument('-p', '--player', help="Directly play the video with PLAYER like mpv")
+    parser.add_argument('-k', '--insecure', action='store_true', default=False, help="Allow insecure server connections when using SSL.")
     parser.add_argument('--proxy', type=str, default='system', help="set proxy HOST:PORT for http(s) transfer. default: use system proxy settings")
     parser.add_argument('-t', '--timeout', type=int, default=60, help="set socket timeout seconds, default 60s")
     parser.add_argument('--no-merge', action='store_true', default=False, help="do not merge video slides")
@@ -61,12 +65,17 @@ def download(urls, name, ext, live = False):
     # for live video, always use ffmpeg to rebuild timeline.
     if live:
         m3u8_internal = False
-    # change m3u8 ext to mp4
-    # rebuild urls when use internal downloader
+    # rebuild m3u8 urls when use internal downloader,
+    # change the ext to segment's ext, default is "ts",
+    # otherwise change the ext to "mp4".
     if ext == 'm3u8':
-        ext = 'mp4'
         if m3u8_internal:
             urls = load_m3u8(urls[0])
+            ext = urlparse(urls[0])[2].split('.')[-1]
+            if ext not in ['ts', 'm4s', 'mp4']:
+                ext = 'ts'
+        else:
+            ext = 'mp4'
 
     # OK check m3u8_internal
     if not m3u8_internal:
@@ -81,13 +90,23 @@ def download(urls, name, ext, live = False):
             logger.critical("{}> donwload failed".format(name))
 
 def handle_videoinfo(info, index=0):
+    i = args.format or '0'
+    if i.isdigit():
+        i = int(i)
+        if i > len(info.stream_types):
+             i =  len(info.stream_types) -1
+        stream_id = info.stream_types[i]
+    else:
+        if not i in info.stream_types:
+            stream_id = info.stream_types[0]
+        else:
+            stream_id = i
     if not args.json:
-        info.print_info(args.format, args.info)
+        info.print_info(stream_id, args.info)
     else:
         print(json.dumps(info.jsonlize(), indent=4, sort_keys=True, ensure_ascii=False))
     if args.info or args.json:
         return
-    stream_id = args.format or info.stream_types[0]
     urls = info.streams[stream_id]['src']
     if args.output_name:
         if args.playlist:
@@ -99,8 +118,16 @@ def handle_videoinfo(info, index=0):
 
     ext = info.streams[stream_id]['container']
     live = info.live
+    if info.extra['rangefetch']:
+        info.extra['rangefetch']['down_rate'] = info.extra['rangefetch']['video_rate'][stream_id]
+    if args.proxy != 'none':
+        info.extra['proxy'] = args.proxy
+        if info.extra['rangefetch']:
+            info.extra['rangefetch']['proxy'] = args.proxy
+    player_args = info.extra
+    player_args['title'] = info.title
     if args.player:
-        launch_player(args.player, urls, **info.extra)
+        launch_player(args.player, urls, ext, **player_args)
     else:
         download(urls, name, ext, live)
 
@@ -114,16 +141,40 @@ def main():
     if args.timeout:
         socket.setdefaulttimeout(args.timeout)
 
+    if args.insecure:
+        ssl._create_default_https_context = ssl._create_unverified_context
+
     if args.proxy == 'system':
-        proxy_handler = ProxyHandler()
+        args.proxy = getproxies().get('http', 'none')
+
+    if args.proxy.lower().startswith('socks'):
+        try:
+            import socks
+            from sockshandler import SocksiPyHandler
+        except ImportError:
+            logger.error('To use SOCKS proxy, please install PySocks first!')
+            raise
+        parsed_socks_proxy = urlparse(args.proxy)
+        sockstype = socks.PROXY_TYPES[parsed_socks_proxy.scheme.upper()]
+        rdns = None
+        proxy_handler = SocksiPyHandler(sockstype,
+                                        parsed_socks_proxy.hostname,
+                                        parsed_socks_proxy.port,
+                                        rdns,
+                                        parsed_socks_proxy.username,
+                                        parsed_socks_proxy.password)
+    elif args.proxy == 'none':
+        proxy_handler = ProxyHandler({})
     else:
+        if not args.proxy.lower().startswith('http'):
+            args.proxy = 'http://' + args.proxy
         proxy_handler = ProxyHandler({
             'http': args.proxy,
             'https': args.proxy
         })
-    if not args.proxy == 'none':
-        opener = build_opener(proxy_handler)
-        install_opener(opener)
+
+    add_default_handler(proxy_handler)
+    install_default_handlers()
 
     #mkdir and cd to output dir
     if not args.output_dir == '.':
